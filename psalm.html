@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Psalm for the Day — Moadim Calendar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: linear-gradient(160deg, #0a0a0f 0%, #12121a 40%, #0d1117 100%);
+      color: #e6edf3;
+      min-height: 100vh;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    h1 {
+      font-family: 'Cinzel', serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+    }
+    .date {
+      font-size: 0.95rem;
+      opacity: 0.8;
+      margin-bottom: 2rem;
+    }
+    .psalm-ref {
+      font-size: 2rem;
+      font-weight: 600;
+      color: #00d9ff;
+      margin-bottom: 2rem;
+    }
+    .back {
+      display: inline-block;
+      margin-top: 2rem;
+      font-size: 0.9rem;
+      color: rgba(0, 217, 255, 0.9);
+      text-decoration: none;
+      border: 1px solid rgba(0, 217, 255, 0.3);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+    .back:hover {
+      background: rgba(0, 217, 255, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <h1>Psalm for the Day</h1>
+  <p class="date" id="dateDisplay"></p>
+  <p class="psalm-ref" id="psalmRef"></p>
+  <a class="back" href="index.html">← Back to calendar</a>
+
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      let dateStr = params.get('date');
+      if (!dateStr) {
+        const t = new Date();
+        dateStr = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+      }
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      document.getElementById('dateDisplay').textContent = date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+      function seededRandom(seed) {
+        const x = Math.sin(seed) * 10000;
+        return x - Math.floor(x);
+      }
+      const seed = y * 10000 + m * 100 + d;
+      const psalmNum = Math.floor(seededRandom(seed) * 155) + 1;
+      document.getElementById('psalmRef').textContent = 'Psalm ' + psalmNum;
+    })();
+  </script>
+</body>
+</html>

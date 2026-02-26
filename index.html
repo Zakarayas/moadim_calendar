@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moadim Calendar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: linear-gradient(160deg, #0a0a0f 0%, #12121a 40%, #0d1117 100%);
+      color: #e6edf3;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    h1 {
+      font-family: 'Cinzel', serif;
+      font-size: 3rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      text-shadow: 0 0 40px rgba(0, 217, 255, 0.2);
+    }
+    .year-select {
+      margin-top: 0.75rem;
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.4rem 0.75rem;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      color: #e6edf3;
+    }
+    .calendar-wrap {
+      overflow-x: auto;
+      margin: 0 auto;
+      max-width: 100%;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 720px;
+      font-size: 0.85rem;
+    }
+    th, td {
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 0.35rem;
+      text-align: center;
+      vertical-align: middle;
+    }
+    th {
+      font-weight: 600;
+      color: rgba(255,255,255,0.7);
+      background: rgba(255,255,255,0.04);
+    }
+    th.week-num {
+      width: 2.5rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.5);
+    }
+    td {
+      background: rgba(255,255,255,0.02);
+    }
+    /* Highlight column 7 (Saturday / week day 7) – outline + background */
+    th:nth-child(8),
+    td:nth-child(8) {
+      background: rgba(0, 217, 255, 0.08);
+      border-color: rgba(0, 217, 255, 0.15);
+      outline: 2px solid rgba(0, 217, 255, 0.6);
+      outline-offset: -2px;
+    }
+    td.day-cell {
+      min-width: 4rem;
+    }
+    td.day-cell a {
+      color: inherit;
+      text-decoration: none;
+      display: block;
+      padding: 0.2rem;
+      margin: -0.2rem;
+    }
+    td.today a:hover,
+    td.today a:active,
+    td.today a:focus {
+      background: rgba(160, 120, 255, 0.25);
+      border-radius: 4px;
+      outline: none;
+    }
+    .day-num {
+      font-weight: 500;
+      color: rgba(255,255,255,0.9);
+      margin-bottom: 0.15rem;
+    }
+    .lunar-day {
+      font-size: 0.7rem;
+      opacity: 0.7;
+      margin-bottom: 0.2rem;
+    }
+    .lunar-day.new-moon-day {
+      color: #00d9ff;
+      font-weight: 600;
+    }
+    .gregorian-small {
+      font-size: 0.65rem;
+      opacity: 0.5;
+      margin-bottom: 0.2rem;
+    }
+    .moon-wrap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      margin: 0 auto;
+    }
+    .moon-svg {
+      width: 24px;
+      height: 24px;
+      display: block;
+    }
+    .today {
+      background: rgba(140, 90, 255, 0.2);
+      border-color: rgba(160, 110, 255, 0.4);
+    }
+
+    /* Stacked weeks: one week per row, full width, vertical scroll (mobile) */
+    @media (max-width: 768px) {
+      body { padding: 1rem; }
+      h1 { font-size: 2rem; letter-spacing: 0.08em; }
+      .calendar-wrap { overflow-x: visible; overflow-y: visible; }
+      table {
+        min-width: 0;
+        width: 100%;
+        font-size: 0.7rem;
+        table-layout: fixed;
+      }
+      th, td {
+        padding: 0.2rem 0.15rem;
+      }
+      th.week-num {
+        width: 2rem;
+        font-size: 0.7rem;
+      }
+      td.day-cell {
+        min-width: 0;
+      }
+      .lunar-day { font-size: 0.55rem; margin-bottom: 0.1rem; }
+      .day-num { font-size: 0.65rem; margin-bottom: 0.08rem; }
+      .gregorian-small { font-size: 0.5rem; margin-bottom: 0.1rem; }
+      .moon-wrap { width: 20px; height: 20px; }
+      .moon-svg { width: 18px; height: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Moadim Calendar</h1>
+    <p style="margin-top:0.35rem; opacity:0.8; font-size:1.05rem;">52 weeks - New moon = 1st day of month - Days 1–7 by moon</p>
+    <select class="year-select" id="yearSelect" aria-label="Select year"></select>
+  </header>
+  <div class="calendar-wrap">
+    <table id="calendar" aria-label="52-week lunar-solar calendar">
+      <thead>
+        <tr>
+          <th class="week-num" scope="col">Wk</th>
+          <th scope="col">1</th>
+          <th scope="col">2</th>
+          <th scope="col">3</th>
+          <th scope="col">4</th>
+          <th scope="col">5</th>
+          <th scope="col">6</th>
+          <th scope="col">7</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    // ——— Moon phase: synodic month and reference new moon (aligned to published dates)
+    // Synodic month (USNO): 29.530588853 days
+    // Reference: New Moon 2025-04-27 19:31 UTC (timeanddate.com / NASA) → JD 2460340.825
+    const SYNODIC_DAYS = 29.530588853;
+    const JD_NEW_MOON_REF = 2460340.825;
+
+    function toJulianDate(date) {
+      let y = date.getFullYear();
+      let m = date.getMonth() + 1;
+      const d = date.getDate();
+      const h = date.getHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
+      if (m <= 2) { y -= 1; m += 12; }
+      const A = Math.floor(y / 100);
+      const B = 2 - A + Math.floor(A / 4);
+      return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5 + (h / 24);
+    }
+
+    /** Returns phase in [0, 1): 0 = new, 0.25 = first quarter, 0.5 = full, 0.75 = last quarter */
+    function getMoonPhase(date) {
+      const jd = toJulianDate(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0));
+      const age = (jd - JD_NEW_MOON_REF) % SYNODIC_DAYS;
+      const phase = age < 0 ? (age + SYNODIC_DAYS) / SYNODIC_DAYS : age / SYNODIC_DAYS;
+      return phase;
+    }
+
+    /** Moon age in days since new moon (0 to ~29.53) */
+    function getMoonAgeDays(date) {
+      const jd = toJulianDate(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0));
+      let age = (jd - JD_NEW_MOON_REF) % SYNODIC_DAYS;
+      if (age < 0) age += SYNODIC_DAYS;
+      return age;
+    }
+
+    /** Lunation index (0, 1, 2, ...) and day-of-lunation (1–30) for a given JD */
+    function getLunationAndDay(jd) {
+      const daysSinceRef = jd - JD_NEW_MOON_REF;
+      const lunationIndex = Math.floor(daysSinceRef / SYNODIC_DAYS);
+      let age = (daysSinceRef % SYNODIC_DAYS);
+      if (age < 0) age += SYNODIC_DAYS;
+      const dayOfLunation = Math.floor(age) + 1;
+      return { lunationIndex, dayOfLunation };
+    }
+
+    /** Convert Julian Date to Gregorian Date (noon UTC) */
+    function jdToDate(jd) {
+      const Z = Math.floor(jd + 0.5);
+      const F = (jd + 0.5) - Z;
+      let A = Z;
+      if (Z >= 2299161) {
+        const alpha = Math.floor((Z - 1867216.25) / 36524.25);
+        A = Z + 1 + alpha - Math.floor(alpha / 4);
+      }
+      const B = A + 1524;
+      const C = Math.floor((B - 122.1) / 365.25);
+      const D = Math.floor(365.25 * C);
+      const E = Math.floor((B - D) / 30.6001);
+      const day = B - D - Math.floor(30.6001 * E) + F;
+      const month = E < 14 ? E - 1 : E - 13;
+      const year = month > 2 ? C - 4716 : C - 4715;
+      return new Date(year, month - 1, Math.floor(day), 12, 0, 0);
+    }
+
+    /** Find the new moon (calendar day) that starts the 52-week grid: the new moon on or before Jan 1 of the year. */
+    function getCalendarStartNewMoon(year) {
+      const jan1 = new Date(year, 0, 1);
+      const jdJan1 = toJulianDate(jan1);
+      const n = Math.floor((jdJan1 - JD_NEW_MOON_REF) / SYNODIC_DAYS);
+      const jdNewMoon = JD_NEW_MOON_REF + n * SYNODIC_DAYS;
+      const newMoonDate = jdToDate(jdNewMoon);
+      newMoonDate.setHours(0, 0, 0, 0);
+      return newMoonDate;
+    }
+
+    /** Calendar starts from today (no backtracking). */
+    function getCalendarStart(year) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return today;
+    }
+
+    /** SVG: circle filled by phase (0 = new/dark, 0.5 = full). Lit part = circle; shadow = overlapping circle offset by phase */
+    function moonPhaseSvg(phase, isNewMoonVisual) {
+      if (isNewMoonVisual === undefined) isNewMoonVisual = phase < 0.02 || phase >= 0.98;
+      const r = 12;
+      const cx = 12;
+      const cy = 12;
+      let offset;
+      if (phase < 0.5) {
+        offset = -4 * r * phase;
+      } else if (phase < 0.75) {
+        offset = -2 * r + 12 * r * (phase - 0.5);
+      } else {
+        offset = r - 4 * r * (phase - 0.75);
+      }
+      const shadowCx = cx + offset;
+      const stroke = isNewMoonVisual ? '#4a4a5a' : '#c4b896';
+      const strokeWidth = isNewMoonVisual ? 1 : 0.5;
+      return (
+        '<svg class="moon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+        '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="#f0e6d3" stroke="' + stroke + '" stroke-width="' + strokeWidth + '"/>' +
+        '<circle cx="' + shadowCx + '" cy="' + cy + '" r="' + r + '" fill="#1a1a2e" stroke="none"/>' +
+        '</svg>'
+      );
+    }
+
+    function getWeekOneStart(year) {
+      return getCalendarStart(year);
+    }
+
+    /** Sunday on or before the given date (start of Gregorian week for the grid). */
+    function getWeekStartSunday(start) {
+      const sun = new Date(start);
+      sun.setDate(sun.getDate() - sun.getDay());
+      sun.setHours(0, 0, 0, 0);
+      return sun;
+    }
+
+    function buildCalendar(year) {
+      const start = getWeekOneStart(year);
+      const weekStart = getWeekStartSunday(start);
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = '';
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (let w = 0; w < 52; w++) {
+        const tr = document.createElement('tr');
+        tr.appendChild(document.createElement('td')).textContent = w + 1;
+        for (let d = 0; d < 7; d++) {
+          const date = new Date(weekStart);
+          date.setDate(weekStart.getDate() + w * 7 + d);
+          date.setHours(0, 0, 0, 0);
+          const jd = toJulianDate(date);
+          const { lunationIndex, dayOfLunation } = getLunationAndDay(jd);
+          const dayOfWeek = d + 1;
+          const phase = getMoonPhase(date);
+          const isNewMoonDay = dayOfLunation === 1;
+          const isNewMoonVisual = phase < 0.02 || phase >= 0.98;
+
+          const td = document.createElement('td');
+          td.className = 'day-cell';
+          if (date.getTime() === today.getTime()) td.classList.add('today');
+          const cellContent = document.createElement(date.getTime() === today.getTime() ? 'a' : 'div');
+          if (date.getTime() === today.getTime()) {
+            const y = date.getFullYear(), m = String(date.getMonth() + 1).padStart(2, '0'), day = String(date.getDate()).padStart(2, '0');
+            cellContent.href = 'psalm.html?date=' + y + '-' + m + '-' + day;
+            cellContent.title = 'Psalm for the day';
+          }
+          const lunarDayEl = document.createElement('div');
+          lunarDayEl.className = 'lunar-day' + (isNewMoonDay ? ' new-moon-day' : '');
+          lunarDayEl.textContent = isNewMoonDay ? 'New moon · Day 1' : 'Day ' + dayOfLunation;
+          cellContent.appendChild(lunarDayEl);
+          const dayNum = document.createElement('div');
+          dayNum.className = 'day-num';
+          dayNum.textContent = 'Week day ' + dayOfWeek;
+          cellContent.appendChild(dayNum);
+          const greg = document.createElement('div');
+          greg.className = 'gregorian-small';
+          greg.textContent = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+          cellContent.appendChild(greg);
+          const wrap = document.createElement('div');
+          wrap.className = 'moon-wrap';
+          wrap.innerHTML = moonPhaseSvg(phase, isNewMoonVisual);
+          wrap.title = 'Phase ' + (Math.round(phase * 100) / 100);
+          cellContent.appendChild(wrap);
+          td.appendChild(cellContent);
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      }
+    }
+
+    const yearSelect = document.getElementById('yearSelect');
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear - 2; y <= currentYear + 2; y++) {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      if (y === currentYear) opt.selected = true;
+      yearSelect.appendChild(opt);
+    }
+    yearSelect.addEventListener('change', () => buildCalendar(parseInt(yearSelect.value, 10)));
+    buildCalendar(currentYear);
+  </script>
+</body>
+</html>
