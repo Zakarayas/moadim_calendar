@@ -135,32 +135,36 @@
       border-color: rgba(160, 110, 255, 0.4);
     }
 
-    /* Stacked weeks: one week per row, full width, vertical scroll (mobile) */
+    /* Stacked weeks: one week per row, larger type for readability; horizontal scroll if needed (mobile) */
     @media (max-width: 768px) {
       body { padding: 1rem; }
       h1 { font-size: 2rem; letter-spacing: 0.08em; }
-      .calendar-wrap { overflow-x: visible; overflow-y: visible; }
+      .calendar-wrap {
+        overflow-x: auto;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+      }
       table {
-        min-width: 0;
+        min-width: 560px;
         width: 100%;
-        font-size: 0.7rem;
+        font-size: 0.85rem;
         table-layout: fixed;
       }
       th, td {
-        padding: 0.2rem 0.15rem;
+        padding: 0.35rem 0.25rem;
       }
       th.week-num {
-        width: 2rem;
-        font-size: 0.7rem;
+        width: 2.5rem;
+        font-size: 0.8rem;
       }
       td.day-cell {
         min-width: 0;
       }
-      .lunar-day { font-size: 0.55rem; margin-bottom: 0.1rem; }
-      .day-num { font-size: 0.65rem; margin-bottom: 0.08rem; }
-      .gregorian-small { font-size: 0.5rem; margin-bottom: 0.1rem; }
-      .moon-wrap { width: 20px; height: 20px; }
-      .moon-svg { width: 18px; height: 18px; }
+      .lunar-day { font-size: 0.72rem; margin-bottom: 0.12rem; }
+      .day-num { font-size: 0.8rem; margin-bottom: 0.1rem; }
+      .gregorian-small { font-size: 0.62rem; margin-bottom: 0.12rem; }
+      .moon-wrap { width: 26px; height: 26px; }
+      .moon-svg { width: 24px; height: 24px; }
     }
   </style>
 </head>
@@ -262,11 +266,19 @@
       return newMoonDate;
     }
 
-    /** Calendar starts from today (no backtracking). */
+    /** Calendar start: current year = from today; other years = Sunday of week containing Jan 1. */
     function getCalendarStart(year) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return today;
+      const currentYear = new Date().getFullYear();
+      if (year === currentYear) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return today;
+      }
+      const jan1 = new Date(year, 0, 1);
+      const sun = new Date(jan1);
+      sun.setDate(sun.getDate() - sun.getDay());
+      sun.setHours(0, 0, 0, 0);
+      return sun;
     }
 
     /** SVG: circle filled by phase (0 = new/dark, 0.5 = full). Lit part = circle; shadow = overlapping circle offset by phase */
