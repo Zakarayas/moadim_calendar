@@ -171,7 +171,8 @@
 <body>
   <header>
     <h1>Moadim Calendar</h1>
-    <p style="margin-top:0.35rem; opacity:0.8; font-size:1.05rem;">52 weeks - New moon = 1st day of month - Days 1–7 by moon</p>
+    <p style="margin-top:0.35rem; opacity:0.8; font-size:1.05rem;">52 weeks — Day 1 = first visible crescent from Earth (Jerusalem center + 3 triangulated points, Israel) — Days 1–7 by moon</p>
+    <p id="nextCrescent" style="margin-top:0.5rem; font-size:0.95rem; color:rgba(0,217,255,0.95);"></p>
     <select class="year-select" id="yearSelect" aria-label="Select year"></select>
   </header>
   <div class="calendar-wrap">
@@ -193,11 +194,24 @@
   </div>
 
   <script>
-    // ——— Moon phase: synodic month and reference new moon (aligned to published dates)
+    // ——— Moon phase: all calculations are from Earth (geocentric). First visible = evening sighting from Jerusalem, Israel.
     // Synodic month (USNO): 29.530588853 days
-    // Reference: New Moon 2025-04-27 19:31 UTC (timeanddate.com / NASA) → JD 2460340.825
+    // Reference: astronomical new moon (conjunction) 2025-01-29 12:36 UTC — same moment everywhere on Earth.
+    // We compute the reference JD with our own jdFromUTC() so the JD scale is consistent (see init below).
     const SYNODIC_DAYS = 29.530588853;
-    const JD_NEW_MOON_REF = 2460340.825;
+    let JD_NEW_MOON_REF;
+
+    // Jerusalem, Israel — center; first visible = triangulated from 4 Earth observers (center + 3 around it).
+    // Minimum moon age at sunset (hours since conjunction) for first visible crescent. ~18–20h typical for mid-latitudes.
+    const MIN_MOON_AGE_HOURS = 18;
+
+    // Four observer coordinates (lat °N, lon °E): Jerusalem center + 3 around it for triangulated visibility.
+    const OBSERVERS = [
+      { name: 'Jerusalem', lat: 31.78,  lon: 35.22  },  // center
+      { name: 'North',     lat: 32.90, lon: 35.50  },  // Tiberias / Upper Galilee
+      { name: 'South',     lat: 31.25, lon: 34.79  },  // Be'er Sheva
+      { name: 'East',      lat: 31.86, lon: 35.46  }   // Jericho
+    ];
 
     function toJulianDate(date) {
       let y = date.getFullYear();
@@ -210,30 +224,46 @@
       return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5 + (h / 24);
     }
 
-    /** Returns phase in [0, 1): 0 = new, 0.25 = first quarter, 0.5 = full, 0.75 = last quarter */
+    /** JD for a given UTC date/time (year, month 1-12, day, hourUTC 0-24). */
+    function jdFromUTC(y, m, d, hourUTC) {
+      if (m <= 2) { y -= 1; m += 12; }
+      const A = Math.floor(y / 100);
+      const B = 2 - A + Math.floor(A / 4);
+      return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5 + (hourUTC / 24);
+    }
+
+    // Reference new moon (conjunction) on same JD scale as jdFromUTC — 2025-01-29 12:36 UTC (Earth, geocentric).
+    JD_NEW_MOON_REF = jdFromUTC(2025, 1, 29, 12.6);
+
+    /** Returns phase in [0, 1): 0 = new, 0.25 = first quarter, 0.5 = full, 0.75 = last quarter.
+     *  Evaluated at noon Jerusalem (10:00 UTC standard time) so phases align with Jerusalem. */
     function getMoonPhase(date) {
-      const jd = toJulianDate(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0));
+      const y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate();
+      const noonJerusalemUTC = 10;
+      const jd = jdFromUTC(y, m, d, noonJerusalemUTC);
       const age = (jd - JD_NEW_MOON_REF) % SYNODIC_DAYS;
       const phase = age < 0 ? (age + SYNODIC_DAYS) / SYNODIC_DAYS : age / SYNODIC_DAYS;
       return phase;
     }
 
-    /** Moon age in days since new moon (0 to ~29.53) */
+    /** Moon age in days since new moon (0 to ~29.53). Also at noon Jerusalem (10:00 UTC). */
     function getMoonAgeDays(date) {
-      const jd = toJulianDate(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0));
+      const y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate();
+      const noonJerusalemUTC = 10;
+      const jd = jdFromUTC(y, m, d, noonJerusalemUTC);
       let age = (jd - JD_NEW_MOON_REF) % SYNODIC_DAYS;
       if (age < 0) age += SYNODIC_DAYS;
       return age;
     }
 
-    /** Lunation index (0, 1, 2, ...) and day-of-lunation (1–30) for a given JD */
+    /** Lunation index and day-of-lunation (1–30) using first visible crescent in Jerusalem (observational month start). */
     function getLunationAndDay(jd) {
-      const daysSinceRef = jd - JD_NEW_MOON_REF;
-      const lunationIndex = Math.floor(daysSinceRef / SYNODIC_DAYS);
-      let age = (daysSinceRef % SYNODIC_DAYS);
-      if (age < 0) age += SYNODIC_DAYS;
-      const dayOfLunation = Math.floor(age) + 1;
-      return { lunationIndex, dayOfLunation };
+      let n = Math.floor((jd - JD_NEW_MOON_REF) / SYNODIC_DAYS);
+      while (getFirstVisibleDayJDCached(n) > jd) n--;
+      while (jd >= getFirstVisibleDayJDCached(n + 1)) n++;
+      const firstVisibleJD = getFirstVisibleDayJDCached(n);
+      const dayOfLunation = Math.floor(jd - firstVisibleJD) + 1;
+      return { lunationIndex: n, dayOfLunation: Math.max(1, dayOfLunation) };
     }
 
     /** Convert Julian Date to Gregorian Date (noon UTC) */
@@ -253,6 +283,78 @@
       const month = E < 14 ? E - 1 : E - 13;
       const year = month > 2 ? C - 4716 : C - 4715;
       return new Date(year, month - 1, Math.floor(day), 12, 0, 0);
+    }
+
+    /** JD to UTC calendar date { year, month 1-12, day }. */
+    function jdToUTCCalendar(jd) {
+      const Z = Math.floor(jd + 0.5);
+      const F = (jd + 0.5) - Z;
+      let A = Z;
+      if (Z >= 2299161) {
+        const alpha = Math.floor((Z - 1867216.25) / 36524.25);
+        A = Z + 1 + alpha - Math.floor(alpha / 4);
+      }
+      const B = A + 1524;
+      const C = Math.floor((B - 122.1) / 365.25);
+      const D = Math.floor(365.25 * C);
+      const E = Math.floor((B - D) / 30.6001);
+      const day = B - D - Math.floor(30.6001 * E) + F;
+      const month = E < 14 ? E - 1 : E - 13;
+      const year = month > 2 ? C - 4716 : C - 4715;
+      return { year, month, day: Math.floor(day) };
+    }
+
+    /** Sunset at a given location: JD (UTC) when sun's center is 0.83° below horizon (refraction). Earth observer at lat/lon. */
+    function getSunsetJD(year, month1Based, day, latDeg, lonDeg) {
+      const jdNoonUTC = jdFromUTC(year, month1Based, day, 12);
+      const jan1 = jdFromUTC(year, 1, 1, 12);
+      const dayOfYear = Math.floor(jdNoonUTC - jan1);
+      const decDeg = 23.44 * Math.sin(2 * Math.PI / 365.25 * (dayOfYear - 81));
+      const latRad = latDeg * Math.PI / 180;
+      const decRad = decDeg * Math.PI / 180;
+      const refrac = -0.83 * Math.PI / 180;
+      const cosOmega = (Math.sin(refrac) - Math.sin(latRad) * Math.sin(decRad)) / (Math.cos(latRad) * Math.cos(decRad));
+      if (cosOmega <= -1 || cosOmega >= 1) return jdNoonUTC + 0.5;
+      const omegaDeg = Math.acos(cosOmega) * 180 / Math.PI;
+      const sunsetHourUTC = 12 + omegaDeg / 15 - lonDeg / 15;
+      return jdNoonUTC - 0.5 + (sunsetHourUTC / 24);
+    }
+
+    /** First visible crescent: first calendar day when at least 2 of 4 observers (Jerusalem + 3 triangulated) see moon age >= threshold at their sunset. */
+    function getFirstVisibleDayJD(lunationIndex) {
+      const jdConj = JD_NEW_MOON_REF + lunationIndex * SYNODIC_DAYS;
+      const conj = jdToUTCCalendar(jdConj);
+      for (let i = 0; i <= 3; i++) {
+        const d = new Date(Date.UTC(conj.year, conj.month - 1, conj.day + i, 12, 0, 0));
+        const y = d.getUTCFullYear(), m = d.getUTCMonth() + 1, day = d.getUTCDate();
+        let visibleCount = 0;
+        for (let o = 0; o < OBSERVERS.length; o++) {
+          const obs = OBSERVERS[o];
+          const jdSunset = getSunsetJD(y, m, day, obs.lat, obs.lon);
+          const moonAgeHours = (jdSunset - jdConj) * 24;
+          if (moonAgeHours >= MIN_MOON_AGE_HOURS) visibleCount++;
+        }
+        if (visibleCount >= 2)
+          return jdFromUTC(y, m, day, 12);
+      }
+      return jdFromUTC(conj.year, conj.month, conj.day, 12);
+    }
+
+    /** Cache first-visible JD per lunation to avoid recomputing. */
+    const firstVisibleCache = {};
+    function getFirstVisibleDayJDCached(n) {
+      if (firstVisibleCache[n] === undefined) firstVisibleCache[n] = getFirstVisibleDayJD(n);
+      return firstVisibleCache[n];
+    }
+
+    /** Next calendar day when the first crescent is visible in Jerusalem (evening of that day). */
+    function getNextFirstVisibleCrescentDate() {
+      const now = new Date();
+      const jdToday = jdFromUTC(now.getFullYear(), now.getMonth() + 1, now.getDate(), 10);
+      let n = Math.floor((jdToday - JD_NEW_MOON_REF) / SYNODIC_DAYS);
+      while (getFirstVisibleDayJDCached(n) <= jdToday) n++;
+      const jdFirst = getFirstVisibleDayJDCached(n);
+      return jdToUTCCalendar(jdFirst);
     }
 
     /** Find the new moon (calendar day) that starts the 52-week grid: the new moon on or before Jan 1 of the year. */
@@ -279,6 +381,13 @@
       sun.setDate(sun.getDate() - sun.getDay());
       sun.setHours(0, 0, 0, 0);
       return sun;
+    }
+
+    /** Phase for display icon only: derived from day-of-lunation (1–30) so Day 1 = first sliver, Day 30 = last waning. */
+    function getPhaseFromLunationDay(dayOfLunation) {
+      if (dayOfLunation < 1 || dayOfLunation > 30) return 0;
+      if (dayOfLunation === 1) return 0.02;
+      return (dayOfLunation - 1) / SYNODIC_DAYS;
     }
 
     /** SVG: circle filled by phase (0 = new/dark, 0.5 = full). Lit part = circle; shadow = overlapping circle offset by phase */
@@ -333,12 +442,12 @@
           const date = new Date(weekStart);
           date.setDate(weekStart.getDate() + w * 7 + d);
           date.setHours(0, 0, 0, 0);
-          const jd = toJulianDate(date);
+          const jd = jdFromUTC(date.getFullYear(), date.getMonth() + 1, date.getDate(), 10);
           const { lunationIndex, dayOfLunation } = getLunationAndDay(jd);
           const dayOfWeek = d + 1;
-          const phase = getMoonPhase(date);
+          const phase = getPhaseFromLunationDay(dayOfLunation);
           const isNewMoonDay = dayOfLunation === 1;
-          const isNewMoonVisual = phase < 0.02 || phase >= 0.98;
+          const isNewMoonVisual = dayOfLunation === 1 || dayOfLunation >= 29;
 
           const td = document.createElement('td');
           td.className = 'day-cell';
@@ -364,7 +473,7 @@
           const wrap = document.createElement('div');
           wrap.className = 'moon-wrap';
           wrap.innerHTML = moonPhaseSvg(phase, isNewMoonVisual);
-          wrap.title = 'Phase ' + (Math.round(phase * 100) / 100);
+          wrap.title = 'Day ' + dayOfLunation + ' of lunation';
           cellContent.appendChild(wrap);
           td.appendChild(cellContent);
           tr.appendChild(td);
@@ -384,6 +493,13 @@
     }
     yearSelect.addEventListener('change', () => buildCalendar(parseInt(yearSelect.value, 10)));
     buildCalendar(currentYear);
+
+    (function showNextCrescent() {
+      const cal = getNextFirstVisibleCrescentDate();
+      const d = new Date(cal.year, cal.month - 1, cal.day);
+      const el = document.getElementById('nextCrescent');
+      if (el) el.textContent = 'Next first visible crescent (Jerusalem region, 2 of 4 observers): ' + d.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' (evening)';
+    })();
   </script>
 </body>
 </html>
